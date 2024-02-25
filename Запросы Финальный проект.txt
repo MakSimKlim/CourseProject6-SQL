@@ -1,0 +1,86 @@
+/*запрос на создание устройства*/
+exec sp_addumpdevice
+@devtype = 'disk',
+@logicalname = 'MyFolder',
+@physicalname = 'D:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\Backup'
+
+/*запросы на создание бэкапа*/
+BACKUP DATABASE DBFlatSale
+TO MyFolder
+WITH INIT;
+
+/*запрос на удаление устройства*/
+exec sp_dropdevice 'MyFolder', 'delfile'
+
+/*Этот запрос вернет информацию об устройстве резервного копирования MyFolder, включая его физическое расположение*/
+EXEC sp_helpdevice 'MyFolder';
+
+/*принудительное использованиеуказанной базы данных*/
+USE DBFlatSale
+
+/*Триггер на увеличение зарплаты риэлторов на 10% за каждую проданную квартиру, начиная со второй*/
+-- Создаем триггер
+CREATE TRIGGER IncreaseRealtorSalary
+ON Sales
+FOR INSERT
+AS
+BEGIN
+    DECLARE @salesCount INT;
+    DECLARE @realtorID INT;
+    DECLARE @salaryID INT;
+    DECLARE @originalAmount FLOAT;
+
+    SELECT @realtorID = RealtorID FROM inserted;
+    SELECT @salesCount = COUNT(*) FROM Sales WHERE RealtorID = @realtorID;
+
+    IF @salesCount > 1
+    BEGIN
+        SELECT @salaryID = SalaryID FROM RealtorSalaryLinks WHERE RealtorID = @realtorID;
+        SELECT @originalAmount = Amount FROM Salary WHERE SalaryID = @salaryID;
+        UPDATE Salary
+        SET Amount = @originalAmount * (1 + 0.1 * (@salesCount - 1))
+        WHERE SalaryID = @salaryID;
+    END
+END;
+
+/*проверка существования таблицы*/
+SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Sales';
+
+/**/
+DECLARE @salesCount INT;
+DECLARE @realtorID INT;
+DECLARE @salaryID INT;
+DECLARE @originalAmount FLOAT;
+
+SELECT @realtorID = RealtorID FROM RealtorSalaryLinks;
+SELECT @salesCount = COUNT(*) FROM Sales WHERE RealtorID = @realtorID;
+
+IF @salesCount > 1
+BEGIN
+    SELECT @salaryID = SalaryID FROM RealtorSalaryLinks WHERE RealtorID = @realtorID;
+    SELECT @originalAmount = Amount FROM Salary WHERE SalaryID = @salaryID;
+    UPDATE Salary
+    SET Amount = @originalAmount * (1 + 0.1 * (@salesCount - 1))
+    WHERE SalaryID = @salaryID;
+END;
+
+/**/
+
+SELECT 
+    Realtors.RealtorID, 
+    Realtors.FullnameRealtors, 
+    Salary.OriginalAmount,
+	Salary.Amount,
+    COUNT(Sales.SaleID) as SoldApartments
+FROM 
+    Realtors
+INNER JOIN 
+    RealtorSalaryLinks ON Realtors.RealtorID = RealtorSalaryLinks.RealtorID
+INNER JOIN 
+    Salary ON RealtorSalaryLinks.SalaryID = Salary.SalaryID
+LEFT JOIN 
+    Sales ON Realtors.RealtorID = Sales.RealtorID
+GROUP BY 
+    Realtors.RealtorID, Realtors.FullnameRealtors, Salary.OriginalAmount, Salary.Amount;
+
+
