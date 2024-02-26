@@ -1,0 +1,133 @@
+/*процедура просмотра зарплаты риэлторов в конкретном агентстве*/
+CREATE PROCEDURE sp_ViewRealtorSalary
+    @CompanyID INT
+AS
+BEGIN
+    SELECT r.FullNameRealtors, rc.CompanyName as RealtyCompany, SUM(s.Amount) as TotalSalary
+    FROM Realtors r
+    JOIN RealtorSalaryLinks rsl ON r.RealtorID = rsl.RealtorID
+    JOIN Salary s ON rsl.SalaryID = s.SalaryID
+    JOIN RealtorCompanyLinks rcl ON r.RealtorID = rcl.RealtorID
+    JOIN RealtyCompanies rc ON rcl.CompanyID = rc.CompanyID
+    WHERE rcl.CompanyID = @CompanyID
+    GROUP BY r.FullNameRealtors, rc.CompanyName
+END
+
+EXEC sp_ViewRealtorSalary @CompanyID = 1
+--==============================================================================================
+/*процедура просмотра с информацией о квартирах*/
+CREATE PROCEDURE sp_ViewApartmentDetails
+AS
+BEGIN
+    DECLARE @CostPerSquareMeter MONEY = 200000;
+
+    SELECT 
+        a.ApartmentID as 'Номер квартиры',
+        a.Floor as 'Этаж',
+        a.Rooms as 'Кол-во комнат',
+        a.Area as 'Площадь',
+        ISNULL(ft.TypeName, 'Без отделки') as 'Отделка',
+        ISNULL(fpc.PriceCoefficient, 1) as 'Ценовой коэффициент',
+        (a.Area * ISNULL(fpc.PriceCoefficient, 1) * @CostPerSquareMeter) as 'Общая стоимость',
+        CASE 
+            WHEN a.IsSold = 1 THEN 'Продана'
+            ELSE 'Не продана'
+        END as 'Статус продажи',
+        s.SaleDate as 'Дата продажи'
+    FROM Apartments a
+    LEFT JOIN ApartmentFinishing af ON a.ApartmentID = af.ApartmentID AND a.IsSold = 1
+    LEFT JOIN FinishingPriceCoefficients fpc ON af.CoefficientID = fpc.CoefficientID
+    LEFT JOIN FinishingTypes ft ON fpc.FinishingTypeID = ft.FinishingTypeID
+    LEFT JOIN Sales s ON a.ApartmentID = s.ApartmentID
+END
+
+EXEC sp_ViewApartmentDetails
+--==============================================================================================
+/*процедура просмотра в которой указаны квартиры, проданные в прошлом году, номер квартиры, имя владельца, 
+риэлторское агентство, полная стоимость, дата продажи*/
+CREATE PROCEDURE sp_ViewSoldApartmentsLastYear
+AS
+BEGIN
+    DECLARE @CostPerSquareMeter MONEY = 200000;
+    DECLARE @LastYear DATE = DATEADD(YEAR, -1, GETDATE());
+
+    SELECT 
+        a.ApartmentID as 'Номер квартиры',
+        b.FullNameBuyer as 'Имя владельца',
+        rc.CompanyName as 'Риэлторское агентство',
+        (a.Area * ISNULL(fpc.PriceCoefficient, 1) * @CostPerSquareMeter) as 'Полная стоимость',
+        s.SaleDate as 'Дата продажи'
+    FROM Apartments a
+    JOIN Sales s ON a.ApartmentID = s.ApartmentID
+    JOIN Buyers b ON s.BuyerID = b.BuyerID
+    LEFT JOIN ApartmentFinishing af ON a.ApartmentID = af.ApartmentID AND a.IsSold = 1
+    LEFT JOIN FinishingPriceCoefficients fpc ON af.CoefficientID = fpc.CoefficientID
+    LEFT JOIN RealtorCompanyLinks rcl ON s.RealtorID = rcl.RealtorID
+    LEFT JOIN RealtyCompanies rc ON rcl.CompanyID = rc.CompanyID
+    WHERE YEAR(s.SaleDate) = YEAR(@LastYear) AND a.IsSold = 1
+END
+
+EXEC sp_ViewSoldApartmentsLastYear
+--==============================================================================================
+/*процедура просмотра информации о сделке и объекте продажи*/
+CREATE PROCEDURE sp_ViewSalesDetails
+AS
+BEGIN
+    SELECT 
+        a.ApartmentID as 'Номер квартиры',
+        a.Rooms as 'Кол-во комнат',
+        a.Floor as 'Этаж',
+        b.FullNameBuyer as 'Имя покупателя',
+        r.FullNameRealtors as 'Имя риэлтора',
+        s.SaleDate as 'Дата продажи'
+    FROM Sales s
+    JOIN Apartments a ON s.ApartmentID = a.ApartmentID
+    JOIN Buyers b ON s.BuyerID = b.BuyerID
+    JOIN Realtors r ON s.RealtorID = r.RealtorID
+END
+
+EXEC sp_ViewSalesDetails
+--==============================================================================================
+/*процедура просмотра всех покупок у каждого покупателя*/
+CREATE PROCEDURE sp_ViewBuyerDetails
+AS
+BEGIN
+    DECLARE @CostPerSquareMeter MONEY = 200000;
+
+    SELECT 
+        b.FullNameBuyer as 'Имя покупателя',
+        COUNT(s.SaleID) as 'Количество купленных квартир',
+        SUM(a.Area * ISNULL(fpc.PriceCoefficient, 1) * @CostPerSquareMeter) as 'Общая стоимость',
+        DATEDIFF(YEAR, b.DateBirthday, GETDATE()) as 'Возраст'
+    FROM Buyers b
+    LEFT JOIN Sales s ON b.BuyerID = s.BuyerID
+    LEFT JOIN Apartments a ON s.ApartmentID = a.ApartmentID
+    LEFT JOIN ApartmentFinishing af ON a.ApartmentID = af.ApartmentID AND a.IsSold = 1
+    LEFT JOIN FinishingPriceCoefficients fpc ON af.CoefficientID = fpc.CoefficientID
+    GROUP BY b.FullNameBuyer, b.DateBirthday
+END
+
+EXEC sp_ViewBuyerDetails
+--==============================================================================================
+/*процедура просмотра всех продаж у каждого риэлтора*/
+CREATE PROCEDURE sp_ViewRealtorSales
+AS
+BEGIN
+    DECLARE @CostPerSquareMeter MONEY = 200000;
+
+    SELECT 
+        r.FullNameRealtors as 'Имя риэлтора',
+        rc.CompanyName as 'Риэлторское агентство',
+        COUNT(s.SaleID) as 'Количество проданных квартир',
+        SUM(a.Area * @CostPerSquareMeter) as 'Общая сумма продаж'
+    FROM Realtors r
+    JOIN Sales s ON r.RealtorID = s.RealtorID
+    JOIN Apartments a ON s.ApartmentID = a.ApartmentID
+    JOIN RealtorCompanyLinks rcl ON r.RealtorID = rcl.RealtorID
+    JOIN RealtyCompanies rc ON rcl.CompanyID = rc.CompanyID
+    GROUP BY r.FullNameRealtors, rc.CompanyName
+END
+
+EXEC sp_ViewRealtorSales
+--==============================================================================================
+

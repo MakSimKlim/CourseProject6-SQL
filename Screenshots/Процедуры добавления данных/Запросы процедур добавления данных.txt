@@ -1,0 +1,15 @@
+/*Хранимая процедура для добавления нового покупателя*/
+CREATE PROCEDURE [dbo].[sp_AddNewBuyer]
+    @FullNameBuyer NVARCHAR(100),
+    @Email NVARCHAR(50),
+    @PhoneNumber NVARCHAR(50),
+    @DateBirthday DATE
+AS
+BEGIN
+    INSERT INTO [dbo].[Buyers] (FullNameBuyer, Email, PhoneNumber, DateBirthday)
+    VALUES (@FullNameBuyer, @Email, @PhoneNumber, @DateBirthday)
+END
+GO
+
+EXEC [dbo].[sp_AddNewBuyer] N'Гарри Ананасович Абрикосов', 'email@example.com', '+79101234567', '1980-01-01'
+--==========================================================================================================

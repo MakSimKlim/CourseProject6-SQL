@@ -1,0 +1,71 @@
+/*Триггер запрета удаления продаж*/
+CREATE TRIGGER trg_PreventSaleDeletion
+ON Sales
+FOR DELETE
+AS
+BEGIN
+    RAISERROR ('Удаление продаж не разрешено.', 16, 1);
+    ROLLBACK TRANSACTION;
+END
+
+
+-- Попытка удалить продажу (проверка триггера)
+DELETE FROM Sales
+WHERE SaleID = 1; -- замените 1 на идентификатор продажи, который вы хотите удалить
+
+--=========================================================================================
+/*Триггер запрета удаления покупателей, которые сделали хотя бы одну покупку*/
+CREATE TRIGGER trg_PreventBuyerDeletion
+ON Buyers
+FOR DELETE
+AS
+BEGIN
+    IF EXISTS (SELECT 1 FROM Sales WHERE BuyerID IN (SELECT BuyerID FROM DELETED))
+    BEGIN
+        RAISERROR ('Удаление покупателей, которые купили хотя бы одну квартиру, не разрешено.', 16, 1);
+        ROLLBACK TRANSACTION;
+    END
+END
+
+
+-- Попытка удалить покупателя, который купил хотя бы одну квартиру (проверка триггера)
+DELETE FROM Buyers
+WHERE BuyerID = 1; -- 1 - идентификатор покупателя, которого нужно удалить
+
+--=========================================================================================
+/*Триггер для предотвращения изменения физических характеристик квартир*/
+CREATE TRIGGER trg_PreventApartmentUpdate
+ON Apartments
+FOR UPDATE
+AS
+BEGIN
+    IF UPDATE(Rooms) OR UPDATE(Floor) OR UPDATE(Area)
+    BEGIN
+        RAISERROR ('Изменение физических характеристик квартир не разрешено.', 16, 1);
+        ROLLBACK TRANSACTION;
+    END
+END
+
+-- Попытка обновить физические характеристики квартиры
+UPDATE Apartments
+SET Rooms = 3
+WHERE ApartmentID = 1; -- замените 1 на идентификатор квартиры, который вы хотите обновить
+
+--=========================================================================================
+/*Триггер для предотвращения удаления квартир*/
+CREATE TRIGGER trg_PreventApartmentDeletion
+ON Apartments
+FOR DELETE
+AS
+BEGIN
+    RAISERROR ('Удаление квартир не разрешено.', 16, 1);
+    ROLLBACK TRANSACTION;
+END
+
+-- Попытка удалить квартиру
+DELETE FROM Apartments
+WHERE ApartmentID = 1; -- замените 1 на идентификатор квартиры, который вы хотите удалить
+
+
+
+
