@@ -13,3 +13,64 @@ GO
 
 EXEC [dbo].[sp_AddNewBuyer] N'Гарри Ананасович Абрикосов', 'email@example.com', '+79101234567', '1980-01-01'
 --==========================================================================================================
+/*Запрос для Бэкапа*/
+
+exec sp_addumpdevice
+@devtype = 'disk',
+@logicalname = 'MyFolder',
+@physicalname = 'D:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\Backup\DBFlatSale3.bak'
+
+BACKUP DATABASE DBFlatSale
+TO MyFolder
+WITH INIT;
+
+exec sp_dropdevice 'MyFolder', 'delfile'
+--==========================================================================================================
+
+/*Процедура создания новой таблицы с установкой связей*/
+CREATE PROCEDURE dbo.CreateInsurersAndLinks
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Создание таблицы Insurers
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Insurers' AND xtype='U')
+    CREATE TABLE Insurers (
+        InsurerID int PRIMARY KEY,
+        FullNameInsurer varchar(255),
+        Email varchar(255),
+        PhoneNumber varchar(20),
+        DateBirthday date
+    );
+
+    -- Создание таблицы InsurerCompanyLinks
+    IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='InsurerCompanyLinks' AND xtype='U')
+    CREATE TABLE InsurerCompanyLinks (
+        LinkID int PRIMARY KEY,
+        InsurerID int,
+        CompanyID int,
+        FOREIGN KEY (InsurerID) REFERENCES Insurers(InsurerID),
+        FOREIGN KEY (CompanyID) REFERENCES RealtyCompanies(CompanyID)
+    );
+END;
+
+EXEC dbo.CreateInsurersAndLinks;
+
+--==========================================================================================================
+
+/*Процедура удаления таблиц*/
+CREATE PROCEDURE dbo.DeleteInsurersAndLinks
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Проверка наличия таблицы InsurerCompanyLinks перед удалением
+    IF EXISTS (SELECT * FROM sysobjects WHERE name='InsurerCompanyLinks' AND xtype='U')
+    DROP TABLE InsurerCompanyLinks;
+
+    -- Проверка наличия таблицы Insurers перед удалением
+    IF EXISTS (SELECT * FROM sysobjects WHERE name='Insurers' AND xtype='U')
+    DROP TABLE Insurers;
+END;
+
+EXEC dbo.DeleteInsurersAndLinks;
