@@ -24,7 +24,31 @@ BACKUP DATABASE DBFlatSale
 TO MyFolder
 WITH INIT;
 
-exec sp_dropdevice 'MyFolder', 'delfile'
+exec sp_dropdevice 'MyFolder' /*Удалить устройство 'MyFolder' после создания Бэкапа*/
+exec sp_dropdevice 'delfile' /*Удалить файл Бэкапа*/
+exec sp_dropdevice 'MyFolder', 'delfile' /*Удалить устройство 'MyFolder' после создания Бэкапа и файл Бэкапа*/
+
+--==========================================================================================================
+/*Процедура создания Бэкапа*/
+
+CREATE PROCEDURE BackupDBFlatSale
+AS
+BEGIN
+    EXEC sp_addumpdevice 
+    @devtype = 'disk', 
+    @logicalname = 'MyFolder', 
+    @physicalname = 'D:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\Backup\DBFlatSale.bak'
+
+    BACKUP DATABASE DBFlatSale
+    TO MyFolder
+    WITH INIT;
+
+    EXEC sp_dropdevice 'MyFolder'
+END
+GO
+
+exec BackupDBFlatSale
+
 --==========================================================================================================
 
 /*Процедура создания новой таблицы с установкой связей*/
